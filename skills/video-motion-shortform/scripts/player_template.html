@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rumus Prompt AI — Origami Studio (9:16)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&family=Space+Mono:wght@400;700&display=block">
+<style>/*__FONTFACE__*/
+  html, body { margin: 0; height: 100%; background: #1d1e1c; color: #eee; font-family: "Space Mono", monospace; overflow: hidden; }
+  #stage { position: absolute; inset: 0 0 52px 0; display: flex; align-items: center; justify-content: center; }
+  #cv { background: #d8d5ca; box-shadow: 0 8px 30px rgba(0,0,0,.45); }
+  #bar { position: absolute; left: 0; right: 0; bottom: 0; height: 52px; display: flex; gap: 10px; align-items: center; padding: 0 14px; background: #2a2b28; box-sizing: border-box; }
+  #bar button { background: #3a3b37; color: #eee; border: 0; border-radius: 4px; padding: 7px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+  #scrub { flex: 1; }
+  #time { font-size: 12px; min-width: 96px; text-align: right; }
+  body.render #bar { display: none; } body.render #stage { inset: 0; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="cv" width="1080" height="1920"></canvas></div>
+<div id="bar">
+  <button id="play">▶ Play</button>
+  <input id="scrub" type="range" min="0" max="1000" value="0">
+  <span id="time">0.00 / 0.00</span>
+  <button id="snd">🔊 Suara</button>
+  <button id="loop">🔁 Loop</button>
+</div>
+<script>/*__VOCONFIG__*/</script>
+<script>/*__HARNESS__*/</script>
+<script>/*__SOUND__*/</script>
+<script>/*__ENGINE__*/</script>
+<script>/*__SCORE__*/</script>
+<script>
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d', { willReadFrequently: true });
+const DURATION = window.DURATION = TL.DURATION;
+window.scoreSound = TL.scoreSound;
+const draw = (t) => { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, 1080, 1920); ORIGAMI.explainer(ctx, 1080, 1920, TL.toEngine(t), { sub: TL.subAt(t) }); };
+window.seek = (t) => draw(H.clamp(t, 0, DURATION));
+const fit = () => { const st = document.getElementById('stage').getBoundingClientRect(); const s = Math.min(st.width / 1080, st.height / 1920); cv.style.width = 1080 * s + 'px'; cv.style.height = 1920 * s + 'px'; };
+addEventListener('resize', fit); fit();
+let cur = 0, playing = false, t0 = 0, p0 = 0, loop = true, soundOn = true, stopSound = null, vo = null;
+if (window.VO_SRC) { vo = new Audio(window.VO_SRC); vo.preload = 'auto'; }
+const ui = () => { document.getElementById('scrub').value = Math.round((cur / DURATION) * 1000); document.getElementById('time').textContent = cur.toFixed(2) + ' / ' + DURATION.toFixed(2); document.getElementById('play').textContent = playing ? '❚❚ Pause' : '▶ Play'; };
+const stopAudio = () => { if (stopSound) { stopSound(); stopSound = null; } if (vo) vo.pause(); };
+const startAudio = () => { if (!soundOn) return; try { stopSound = SOUND.live(scoreSound, cur, { voiceover: !!vo || window.SCORE_VO_MODE }); } catch (e) {} if (vo) { vo.currentTime = cur; vo.play().catch(() => {}); } };
+const play = () => { playing = true; t0 = performance.now(); p0 = cur; startAudio(); ui(); };
+const pause = () => { playing = false; stopAudio(); ui(); };
+document.getElementById('play').onclick = () => (playing ? pause() : play());
+document.getElementById('scrub').oninput = (e) => { cur = (e.target.value / 1000) * DURATION; stopAudio(); draw(cur); if (playing) { t0 = performance.now(); p0 = cur; startAudio(); } ui(); };
+document.getElementById('snd').onclick = (e) => { soundOn = !soundOn; e.target.textContent = soundOn ? '🔊 Suara' : '🔇 Suara'; if (!soundOn) stopAudio(); else if (playing) startAudio(); };
+document.getElementById('loop').onclick = (e) => { loop = !loop; e.target.style.opacity = loop ? 1 : 0.5; };
+const tick = () => {
+  if (playing) {
+    cur = p0 + (performance.now() - t0) / 1000;
+    if (cur >= DURATION) { if (loop) { cur = 0; p0 = 0; t0 = performance.now(); stopAudio(); startAudio(); } else { cur = DURATION; pause(); } }
+    draw(cur); ui();
+  }
+  requestAnimationFrame(tick);
+};
+(async () => {
+  if (location.hash === '#render') document.body.classList.add('render');
+  try { await Promise.all(['700 40px "Space Grotesk"', '400 40px "Space Grotesk"', '700 40px "Space Mono"', '400 40px "Space Mono"'].map((f) => document.fonts.load(f, 'AaZz09±·…"'))); await document.fonts.ready; } catch (e) {}
+  draw(0); ui(); window.READY = true; requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
